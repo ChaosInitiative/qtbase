@@ -170,6 +170,77 @@ static bool enableNonClientDpiScaling(HWND hwnd)
     return result;
 }
 
+/*!
+    \class QWindowsUser32DLL
+    \brief Struct that contains dynamically resolved symbols of User32.dll.
+
+    The stub libraries shipped with the MinGW compiler miss some of the
+    functions. They need to be retrieved dynamically.
+
+    In addition, touch-related functions are available only from Windows onwards.
+    These need to resolved dynamically for Q_CC_MSVC as well.
+
+    \sa QWindowsShell32DLL
+
+    \internal
+*/
+
+void QWindowsUser32DLL::init()
+{
+    QSystemLibrary library(QStringLiteral("user32"));
+    setProcessDPIAware = (SetProcessDPIAware)library.resolve("SetProcessDPIAware");
+    setProcessDpiAwarenessContext = (SetProcessDpiAwarenessContext)library.resolve("SetProcessDpiAwarenessContext");
+
+    addClipboardFormatListener = (AddClipboardFormatListener)library.resolve("AddClipboardFormatListener");
+    removeClipboardFormatListener = (RemoveClipboardFormatListener)library.resolve("RemoveClipboardFormatListener");
+
+    getDisplayAutoRotationPreferences = (GetDisplayAutoRotationPreferences)library.resolve("GetDisplayAutoRotationPreferences");
+    setDisplayAutoRotationPreferences = (SetDisplayAutoRotationPreferences)library.resolve("SetDisplayAutoRotationPreferences");
+
+    if (QOperatingSystemVersion::current() >= QOperatingSystemVersion::Windows8) {
+        enableMouseInPointer = (EnableMouseInPointer)library.resolve("EnableMouseInPointer");
+        getPointerType = (GetPointerType)library.resolve("GetPointerType");
+        getPointerInfo = (GetPointerInfo)library.resolve("GetPointerInfo");
+        getPointerDeviceRects = (GetPointerDeviceRects)library.resolve("GetPointerDeviceRects");
+        getPointerTouchInfo = (GetPointerTouchInfo)library.resolve("GetPointerTouchInfo");
+        getPointerFrameTouchInfo = (GetPointerFrameTouchInfo)library.resolve("GetPointerFrameTouchInfo");
+        getPointerFrameTouchInfoHistory = (GetPointerFrameTouchInfoHistory)library.resolve("GetPointerFrameTouchInfoHistory");
+        getPointerPenInfo = (GetPointerPenInfo)library.resolve("GetPointerPenInfo");
+        getPointerPenInfoHistory = (GetPointerPenInfoHistory)library.resolve("GetPointerPenInfoHistory");
+        skipPointerFrameMessages = (SkipPointerFrameMessages)library.resolve("SkipPointerFrameMessages");
+    }
+
+    if (QOperatingSystemVersion::current()
+        >= QOperatingSystemVersion(QOperatingSystemVersion::Windows, 10, 0, 14393)) {
+        adjustWindowRectExForDpi = (AdjustWindowRectExForDpi)library.resolve("AdjustWindowRectExForDpi");
+        enableNonClientDpiScaling = (EnableNonClientDpiScaling)library.resolve("EnableNonClientDpiScaling");
+        getWindowDpiAwarenessContext = (GetWindowDpiAwarenessContext)library.resolve("GetWindowDpiAwarenessContext");
+        getAwarenessFromDpiAwarenessContext = (GetAwarenessFromDpiAwarenessContext)library.resolve("GetAwarenessFromDpiAwarenessContext");
+        systemParametersInfoForDpi = (SystemParametersInfoForDpi)library.resolve("SystemParametersInfoForDpi");
+        getDpiForWindow = (GetDpiForWindow)library.resolve("GetDpiForWindow");
+    }
+}
+
+bool QWindowsUser32DLL::supportsPointerApi()
+{
+    return enableMouseInPointer && getPointerType && getPointerInfo && getPointerDeviceRects
+            && getPointerTouchInfo && getPointerFrameTouchInfo && getPointerFrameTouchInfoHistory
+            && getPointerPenInfo && getPointerPenInfoHistory && skipPointerFrameMessages;
+}
+
+void QWindowsShcoreDLL::init()
+{
+    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows8_1)
+        return;
+    QSystemLibrary library(QStringLiteral("SHCore"));
+    getProcessDpiAwareness = (GetProcessDpiAwareness)library.resolve("GetProcessDpiAwareness");
+    setProcessDpiAwareness = (SetProcessDpiAwareness)library.resolve("SetProcessDpiAwareness");
+    getDpiForMonitor = (GetDpiForMonitor)library.resolve("GetDpiForMonitor");
+}
+
+QWindowsUser32DLL QWindowsContext::user32dll;
+QWindowsShcoreDLL QWindowsContext::shcoredll;
+
 QWindowsContext *QWindowsContext::m_instance = nullptr;
 
 /*!
@@ -325,6 +396,12 @@ bool QWindowsContext::disposeTablet()
 bool QWindowsContext::initPointer(unsigned integrationOptions)
 {
     if (integrationOptions & QWindowsIntegration::DontUseWMPointer)
+        return false;
+
+    if (QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows8)
+        return false;
+
+    if (!QWindowsContext::user32dll.supportsPointerApi())
         return false;
 
     d->m_systemInfo |= QWindowsContext::SI_SupportsPointer;
