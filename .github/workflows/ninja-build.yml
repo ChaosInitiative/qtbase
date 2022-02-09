@@ -33,21 +33,6 @@ jobs:
             tools: ninja-build ccache
             install_cmd: sudo apt-get -y install
             configure_flags: -xcb -system-sqlite -system-pcre -system-zlib -system-freetype -system-libpng -system-libjpeg -system-harfbuzz -system-libb2 -system-doubleconversion -system-libmd4c
-          - name: ubuntu-18.04
-            os:   ubuntu-18.04
-            # NOTE: system libb2 is not detected because version < 0.98.1 lacks pkg-config module
-            # NOTE: system libharfbuzz is not detected because system has old version
-            deps:  libgl-dev libglu-dev 'libxcb*-dev' libx11-xcb-dev libxkbcommon-x11-dev libpcre2-dev libz-dev libfreetype6-dev libpng-dev libjpeg-dev libsqlite3-dev libharfbuzz-dev libb2-dev libdouble-conversion-dev
-            tools: ninja-build ccache gcc-10
-            install_cmd: sudo apt-get -y install
-            configure_flags: -xcb -system-sqlite -system-pcre -system-zlib -system-freetype -system-libpng -system-libjpeg -system-harfbuzz -system-libb2 -system-doubleconversion
-          - name: macos-10.15
-            os:   macos-10.15
-            deps:  jpeg sqlite libpng pcre2 harfbuzz freetype libb2 double-conversion
-            tools: ninja ccache pkg-config
-            install_cmd: HOMEBREW_NO_INSTALL_CLEANUP=1 brew install
-            # Specifically on macOS pkg_config has to be manually turned on otherwise libraries under /usr/local are not detected.
-            configure_flags: -pkg-config -system-sqlite -system-pcre -system-zlib -system-freetype -system-libpng -system-libjpeg -system-harfbuzz -system-libb2 -system-doubleconversion
           - name: windows-2019
             os:   windows-2019
             install_cmd: choco install
