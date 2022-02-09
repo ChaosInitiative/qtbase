@@ -45,6 +45,9 @@
 #pragma qt_sync_stop_processing
 #endif
 
+#undef WINVER
+#undef _WIN32_WINNT
+
 #ifndef WINVER
 #  define WINVER 0x0A00 // _WIN32_WINNT_WIN10
 #endif

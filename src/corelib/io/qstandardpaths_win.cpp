@@ -47,6 +47,7 @@
 #endif
 
 #include <qt_windows.h>
+#include <processthreadsapi.h>
 #include <shlobj.h>
 #include <intshcut.h>
 #include <qvarlengtharray.h>
