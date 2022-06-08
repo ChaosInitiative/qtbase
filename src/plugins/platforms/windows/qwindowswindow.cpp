@@ -65,6 +65,7 @@
 #include <QtGui/qwindow.h>
 #include <QtGui/qregion.h>
 #include <QtGui/qopenglcontext.h>
+#include <private/qsystemlibrary_p.h>
 #include <private/qwindow_p.h> // QWINDOWSIZE_MAX
 #include <private/qguiapplication_p.h>
 #include <private/qhighdpiscaling_p.h>
@@ -72,14 +73,13 @@
 
 #include <QtCore/qdebug.h>
 #include <QtCore/qlibraryinfo.h>
+#include <QtCore/qoperatingsystemversion.h>
 
 #include <dwmapi.h>
 
 #if QT_CONFIG(vulkan)
 #include "qwindowsvulkaninstance.h"
 #endif
-
-#include <shellscalingapi.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -554,11 +554,14 @@ static inline void updateGLWindowSettings(const QWindow *w, HWND hwnd, Qt::Windo
 
 [[nodiscard]] static inline int getResizeBorderThickness(const UINT dpi)
 {
+    if (!QWindowsContext::user32dll.getSystemMetricsForDpi)
+        return GetSystemMetrics(SM_CXSIZEFRAME)
+           + GetSystemMetrics(SM_CXPADDEDBORDER);
     // The width of the padded border will always be 0 if DWM composition is
     // disabled, but since it will always be enabled and can't be programtically
     // disabled from Windows 8, we are safe to go.
-    return GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi)
-           + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+    return QWindowsContext::user32dll.getSystemMetricsForDpi(SM_CXSIZEFRAME, dpi)
+           + QWindowsContext::user32dll.getSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
 }
 
 /*!
@@ -568,13 +571,17 @@ static inline void updateGLWindowSettings(const QWindow *w, HWND hwnd, Qt::Windo
 
 static QMargins invisibleMargins(QPoint screenPoint)
 {
+    if (QOperatingSystemVersion::current() >= QOperatingSystemVersion::Windows10) {
     POINT pt = {screenPoint.x(), screenPoint.y()};
     if (HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL)) {
+            if (QWindowsContext::shcoredll.isValid()) {
         UINT dpiX;
         UINT dpiY;
-        if (SUCCEEDED(GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) {
+                if (SUCCEEDED(QWindowsContext::shcoredll.getDpiForMonitor(hMonitor, 0, &dpiX, &dpiY))) {
             const int gap = getResizeBorderThickness(dpiX);
             return QMargins(gap, 0, gap, gap);
+        }
+    }
         }
     }
     return QMargins();
@@ -582,7 +589,8 @@ static QMargins invisibleMargins(QPoint screenPoint)
 
 [[nodiscard]] static inline QMargins invisibleMargins(const HWND hwnd)
 {
-    const UINT dpi = GetDpiForWindow(hwnd);
+    const UINT dpi = QWindowsContext::user32dll.getDpiForWindow ?
+        QWindowsContext::user32dll.getDpiForWindow(hwnd) : 96;
     const int gap = getResizeBorderThickness(dpi);
     return QMargins(gap, 0, gap, gap);
 }
@@ -1075,9 +1083,12 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, DWORD style, DWORD exStyl
 {
     if (!w->isTopLevel() || w->flags().testFlag(Qt::FramelessWindowHint))
         return {};
+    if (QWindowsContext::user32dll.adjustWindowRectExForDpi == nullptr)
+        return frameOnPrimaryScreen(w, style, exStyle);
     RECT rect = {0,0,0,0};
     style &= ~DWORD(WS_OVERLAPPED); // Not permitted, see docs.
-    if (AdjustWindowRectExForDpi(&rect, style, FALSE, exStyle, unsigned(qRound(dpi))) == FALSE) {
+    if (QWindowsContext::user32dll.adjustWindowRectExForDpi(&rect, style, FALSE, exStyle,
+                                                            unsigned(qRound(dpi))) == FALSE) {
         qErrnoWarning("%s: AdjustWindowRectExForDpi failed", __FUNCTION__);
     }
     const QMargins result(qAbs(rect.left), qAbs(rect.top),
@@ -1117,7 +1128,8 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, const QRect &geometry,
 {
     if (!w->isTopLevel() || w->flags().testFlag(Qt::FramelessWindowHint))
         return {};
-    if (QWindowsScreenManager::isSingleScreen()
+    if (!QWindowsContext::user32dll.adjustWindowRectExForDpi
+        || QWindowsScreenManager::isSingleScreen()
         || !QWindowsContext::shouldHaveNonClientDpiScaling(w)) {
         return frameOnPrimaryScreen(w, style, exStyle);
     }
@@ -1568,7 +1580,8 @@ void QWindowsWindow::initialize()
             QWindowSystemInterface::handleGeometryChange<QWindowSystemInterface::SynchronousDelivery>(w, obtainedGeometry);
         }
     }
-    QWindowsWindow::setSavedDpi(GetDpiForWindow(handle()));
+    QWindowsWindow::setSavedDpi(QWindowsContext::user32dll.getDpiForWindow ?
+        QWindowsContext::user32dll.getDpiForWindow(handle()) : 96);
 }
 
 QSurfaceFormat QWindowsWindow::format() const

@@ -56,6 +56,7 @@
 #endif
 
 #ifdef SUPPORTS_WINRT
+#define _ALLOW_COROUTINE_ABI_MISMATCH
 #include <winrt/base.h>
 #endif
 

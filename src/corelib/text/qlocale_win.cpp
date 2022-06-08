@@ -54,6 +54,7 @@
 #endif
 
 #if QT_CONFIG(cpp_winrt) && !defined(Q_CC_CLANG)
+#define _ALLOW_COROUTINE_ABI_MISMATCH
 #   include <winrt/base.h>
 // Workaround for Windows SDK bug.
 // See https://github.com/microsoft/Windows.UI.Composition-Win32-Samples/issues/47
