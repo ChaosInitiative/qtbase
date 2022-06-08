@@ -354,9 +354,10 @@ void QEventDispatcherWin32Private::registerTimer(WinTimerInfo *t)
         ok = t->fastTimerId;
     }
 
-    if (!ok) {
+    static const decltype(&SetCoalescableTimer) SetCoalescableTimerF = (decltype(&SetCoalescableTimer))GetProcAddress(GetModuleHandleA("user32.dll"), "SetCoalescableTimer");
+    if (!ok && SetCoalescableTimerF) {
         // user normal timers for (Very)CoarseTimers, or if no more multimedia timers available
-        ok = SetCoalescableTimer(internalHwnd, t->timerId, interval, nullptr, tolerance);
+        ok = SetCoalescableTimerF(internalHwnd, t->timerId, interval, nullptr, tolerance);
     }
     if (!ok)
         ok = SetTimer(internalHwnd, t->timerId, interval, nullptr);
