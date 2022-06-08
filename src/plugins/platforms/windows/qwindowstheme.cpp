@@ -27,6 +27,7 @@
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qdebug.h>
 #include <QtCore/qtextstream.h>
+#include <QtCore/qoperatingsystemversion.h>
 #include <QtCore/qsysinfo.h>
 #include <QtCore/qcache.h>
 #include <QtCore/qthread.h>
@@ -1103,7 +1104,9 @@ bool QWindowsTheme::useNativeMenus()
 
 bool QWindowsTheme::queryDarkMode()
 {
-    if (queryHighContrast()) {
+    if (QOperatingSystemVersion::current()
+        < QOperatingSystemVersion(QOperatingSystemVersion::Windows, 10, 0, 17763)
+        || queryHighContrast()) {
         return false;
     }
     const auto setting = QWinRegistryKey(HKEY_CURRENT_USER, LR"(Software\Microsoft\Windows\CurrentVersion\Themes\Personalize)")

@@ -41,9 +41,11 @@
 #include <QtCore/qlibraryinfo.h>
 #include <QtCore/qstringlist.h>
 #include <QtCore/qdebug.h>
+#include <QtCore/qoperatingsystemversion.h>
 #include <QtCore/qsysinfo.h>
 #include <QtCore/qscopedpointer.h>
 #include <QtCore/quuid.h>
+#include <QtCore/private/qsystemlibrary_p.h>
 #include <QtCore/private/qwinregistry_p.h>
 
 #include <QtGui/private/qwindowsguieventdispatcher_p.h>
@@ -54,7 +56,6 @@
 #include <comdef.h>
 #include <dbt.h>
 #include <wtsapi32.h>
-#include <shellscalingapi.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -119,15 +120,17 @@ static inline bool sessionManagerInteractionBlocked() { return false; }
 
 static inline int windowDpiAwareness(HWND hwnd)
 {
-    return static_cast<int>(GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwnd)));
+    return QWindowsContext::user32dll.getWindowDpiAwarenessContext && QWindowsContext::user32dll.getAwarenessFromDpiAwarenessContext
+        ? QWindowsContext::user32dll.getAwarenessFromDpiAwarenessContext(QWindowsContext::user32dll.getWindowDpiAwarenessContext(hwnd))
+        : -1;
 }
 
 // Note: This only works within WM_NCCREATE
 static bool enableNonClientDpiScaling(HWND hwnd)
 {
     bool result = false;
-    if (windowDpiAwareness(hwnd) == 2) {
-        result = EnableNonClientDpiScaling(hwnd) != FALSE;
+    if (QWindowsContext::user32dll.enableNonClientDpiScaling && windowDpiAwareness(hwnd) == 2) {
+        result = QWindowsContext::user32dll.enableNonClientDpiScaling(hwnd) != FALSE;
         if (!result) {
             const DWORD errorCode = GetLastError();
             qErrnoWarning(int(errorCode), "EnableNonClientDpiScaling() failed for HWND %p (%lu)",
@@ -136,6 +139,74 @@ static bool enableNonClientDpiScaling(HWND hwnd)
     }
     return result;
 }
+
+/*!
+    \class QWindowsUser32DLL
+    \brief Struct that contains dynamically resolved symbols of User32.dll.
+
+    The stub libraries shipped with the MinGW compiler miss some of the
+    functions. They need to be retrieved dynamically.
+
+    In addition, touch-related functions are available only from Windows onwards.
+    These need to resolved dynamically for Q_CC_MSVC as well.
+
+    \sa QWindowsShell32DLL
+
+    \internal
+*/
+
+void QWindowsUser32DLL::init()
+{
+    QSystemLibrary library(QStringLiteral("user32"));
+    setProcessDPIAware = (SetProcessDPIAware)library.resolve("SetProcessDPIAware");
+    setProcessDpiAwarenessContext = (SetProcessDpiAwarenessContext)library.resolve("SetProcessDpiAwarenessContext");
+
+    addClipboardFormatListener = (AddClipboardFormatListener)library.resolve("AddClipboardFormatListener");
+    removeClipboardFormatListener = (RemoveClipboardFormatListener)library.resolve("RemoveClipboardFormatListener");
+
+    getDisplayAutoRotationPreferences = (GetDisplayAutoRotationPreferences)library.resolve("GetDisplayAutoRotationPreferences");
+    setDisplayAutoRotationPreferences = (SetDisplayAutoRotationPreferences)library.resolve("SetDisplayAutoRotationPreferences");
+
+    enableMouseInPointer = (EnableMouseInPointer)library.resolve("EnableMouseInPointer");
+    getPointerType = (GetPointerType)library.resolve("GetPointerType");
+    getPointerInfo = (GetPointerInfo)library.resolve("GetPointerInfo");
+    getPointerDeviceRects = (GetPointerDeviceRects)library.resolve("GetPointerDeviceRects");
+    getPointerTouchInfo = (GetPointerTouchInfo)library.resolve("GetPointerTouchInfo");
+    getPointerFrameTouchInfo = (GetPointerFrameTouchInfo)library.resolve("GetPointerFrameTouchInfo");
+    getPointerFrameTouchInfoHistory = (GetPointerFrameTouchInfoHistory)library.resolve("GetPointerFrameTouchInfoHistory");
+    getPointerPenInfo = (GetPointerPenInfo)library.resolve("GetPointerPenInfo");
+    getPointerPenInfoHistory = (GetPointerPenInfoHistory)library.resolve("GetPointerPenInfoHistory");
+    skipPointerFrameMessages = (SkipPointerFrameMessages)library.resolve("SkipPointerFrameMessages");
+
+    if (QOperatingSystemVersion::current()
+        >= QOperatingSystemVersion(QOperatingSystemVersion::Windows, 10, 0, 14393)) {
+        adjustWindowRectExForDpi = (AdjustWindowRectExForDpi)library.resolve("AdjustWindowRectExForDpi");
+        enableNonClientDpiScaling = (EnableNonClientDpiScaling)library.resolve("EnableNonClientDpiScaling");
+        getWindowDpiAwarenessContext = (GetWindowDpiAwarenessContext)library.resolve("GetWindowDpiAwarenessContext");
+        getAwarenessFromDpiAwarenessContext = (GetAwarenessFromDpiAwarenessContext)library.resolve("GetAwarenessFromDpiAwarenessContext");
+        systemParametersInfoForDpi = (SystemParametersInfoForDpi)library.resolve("SystemParametersInfoForDpi");
+        getDpiForWindow = (GetDpiForWindow)library.resolve("GetDpiForWindow");
+        getSystemMetricsForDpi = (GetSystemMetricsForDpi)library.resolve("GetSystemMetricsForDpi");
+    }
+}
+
+bool QWindowsUser32DLL::supportsPointerApi()
+{
+    return enableMouseInPointer && getPointerType && getPointerInfo && getPointerDeviceRects
+            && getPointerTouchInfo && getPointerFrameTouchInfo && getPointerFrameTouchInfoHistory
+            && getPointerPenInfo && getPointerPenInfoHistory && skipPointerFrameMessages;
+}
+
+void QWindowsShcoreDLL::init()
+{
+    QSystemLibrary library(QStringLiteral("SHCore"));
+    getProcessDpiAwareness = (GetProcessDpiAwareness)library.resolve("GetProcessDpiAwareness");
+    setProcessDpiAwareness = (SetProcessDpiAwareness)library.resolve("SetProcessDpiAwareness");
+    getDpiForMonitor = (GetDpiForMonitor)library.resolve("GetDpiForMonitor");
+}
+
+QWindowsUser32DLL QWindowsContext::user32dll;
+QWindowsShcoreDLL QWindowsContext::shcoredll;
 
 QWindowsContext *QWindowsContext::m_instance = nullptr;
 
@@ -180,6 +251,9 @@ bool QWindowsContextPrivate::m_v2DpiAware = false;
 QWindowsContextPrivate::QWindowsContextPrivate()
     : m_oleInitializeResult(OleInitialize(nullptr))
 {
+    QWindowsContext::user32dll.init();
+    QWindowsContext::shcoredll.init();
+
     if (m_pointerHandler.touchDevice() || m_mouseHandler.touchDevice())
         m_systemInfo |= QWindowsContext::SI_SupportsTouch;
     m_displayContext = GetDC(nullptr);
@@ -294,6 +368,9 @@ bool QWindowsContext::initPointer(unsigned integrationOptions)
     if (integrationOptions & QWindowsIntegration::DontUseWMPointer)
         return false;
 
+    if (!QWindowsContext::user32dll.supportsPointerApi())
+        return false;
+
     d->m_systemInfo |= QWindowsContext::SI_SupportsPointer;
     return true;
 }
@@ -363,9 +440,10 @@ void QWindowsContext::setDetectAltGrModifier(bool a)
 
 int QWindowsContext::processDpiAwareness()
 {
-    PROCESS_DPI_AWARENESS result;
-    if (SUCCEEDED(GetProcessDpiAwareness(nullptr, &result))) {
-        return static_cast<int>(result);
+    int result;
+    if (QWindowsContext::shcoredll.getProcessDpiAwareness
+        && SUCCEEDED(QWindowsContext::shcoredll.getProcessDpiAwareness(nullptr, &result))) {
+        return result;
     }
     return -1;
 }
@@ -373,20 +451,27 @@ int QWindowsContext::processDpiAwareness()
 void QWindowsContext::setProcessDpiAwareness(QtWindows::ProcessDpiAwareness dpiAwareness)
 {
     qCDebug(lcQpaWindows) << __FUNCTION__ << dpiAwareness;
-    const HRESULT hr = SetProcessDpiAwareness(static_cast<PROCESS_DPI_AWARENESS>(dpiAwareness));
-    // E_ACCESSDENIED means set externally (MSVC manifest or external app loading Qt plugin).
-    // Silence warning in that case unless debug is enabled.
-    if (FAILED(hr) && (hr != E_ACCESSDENIED || lcQpaWindows().isDebugEnabled())) {
-        qWarning().noquote().nospace() << "SetProcessDpiAwareness("
-            << dpiAwareness << ") failed: " << QWindowsContext::comErrorString(hr)
-            << ", using " << QWindowsContext::processDpiAwareness();
+    if (QWindowsContext::shcoredll.isValid()) {
+        const HRESULT hr = QWindowsContext::shcoredll.setProcessDpiAwareness(dpiAwareness);
+        // E_ACCESSDENIED means set externally (MSVC manifest or external app loading Qt plugin).
+        // Silence warning in that case unless debug is enabled.
+        if (FAILED(hr) && (hr != E_ACCESSDENIED || lcQpaWindows().isDebugEnabled())) {
+            qWarning().noquote().nospace() << "SetProcessDpiAwareness("
+                << dpiAwareness << ") failed: " << QWindowsContext::comErrorString(hr)
+                << ", using " << QWindowsContext::processDpiAwareness();
+        }
+    } else {
+        if (dpiAwareness != QtWindows::ProcessDpiUnaware && QWindowsContext::user32dll.setProcessDPIAware) {
+            if (!QWindowsContext::user32dll.setProcessDPIAware())
+                qErrnoWarning("SetProcessDPIAware() failed");
+        }
     }
 }
 
 bool QWindowsContext::setProcessDpiV2Awareness()
 {
     qCDebug(lcQpaWindows) << __FUNCTION__;
-    const BOOL ok = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    const BOOL ok = QWindowsContext::user32dll.setProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     if (!ok) {
         const HRESULT errorCode = GetLastError();
         qCWarning(lcQpaWindows).noquote().nospace() << "setProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) failed: "
@@ -913,8 +998,8 @@ void QWindowsContext::forceNcCalcSize(HWND hwnd)
 bool QWindowsContext::systemParametersInfo(unsigned action, unsigned param, void *out,
                                            unsigned dpi)
 {
-    const BOOL result = dpi != 0
-        ? SystemParametersInfoForDpi(action, param, out, 0, dpi)
+    const BOOL result = QWindowsContext::user32dll.systemParametersInfoForDpi != nullptr && dpi != 0
+        ? QWindowsContext::user32dll.systemParametersInfoForDpi(action, param, out, 0, dpi)
         : SystemParametersInfo(action, param, out, 0);
     return result == TRUE;
 }
@@ -961,7 +1046,8 @@ bool QWindowsContext::shouldHaveNonClientDpiScaling(const QWindow *window)
     if (QWindowsContextPrivate::m_v2DpiAware)
         return true;
 
-    return window->isTopLevel()
+    return QOperatingSystemVersion::current() >= QOperatingSystemVersion::Windows10
+        && window->isTopLevel()
         && !window->property(QWindowsWindow::embeddedNativeParentHandleProperty).isValid()
 #if QT_CONFIG(opengl) // /QTBUG-62901, EnableNonClientDpiScaling has problems with GL
         && (window->surfaceType() != QSurface::OpenGLSurface
