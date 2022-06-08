@@ -20,8 +20,6 @@
 
 #include <QtCore/qdebug.h>
 
-#include <shellscalingapi.h>
-
 QT_BEGIN_NAMESPACE
 
 using namespace Qt::StringLiterals;
@@ -33,10 +31,12 @@ static inline QDpi deviceDPI(HDC hdc)
 
 static inline QDpi monitorDPI(HMONITOR hMonitor)
 {
-    UINT dpiX;
-    UINT dpiY;
-    if (SUCCEEDED(GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY)))
-        return QDpi(dpiX, dpiY);
+    if (QWindowsContext::shcoredll.isValid()) {
+        UINT dpiX;
+        UINT dpiY;
+        if (SUCCEEDED(QWindowsContext::shcoredll.getDpiForMonitor(hMonitor, 0, &dpiX, &dpiY)))
+            return QDpi(dpiX, dpiY);
+    }
     return {0, 0};
 }
 
@@ -425,50 +425,62 @@ QRect QWindowsScreen::virtualGeometry(const QPlatformScreen *screen) // cf QScre
     return result;
 }
 
+enum OrientationPreference : DWORD // matching Win32 API ORIENTATION_PREFERENCE
+{
+    orientationPreferenceNone = 0,
+    orientationPreferenceLandscape = 0x1,
+    orientationPreferencePortrait = 0x2,
+    orientationPreferenceLandscapeFlipped = 0x4,
+    orientationPreferencePortraitFlipped = 0x8
+};
+
 bool QWindowsScreen::setOrientationPreference(Qt::ScreenOrientation o)
 {
     bool result = false;
-    ORIENTATION_PREFERENCE orientationPreference = ORIENTATION_PREFERENCE_NONE;
-    switch (o) {
-    case Qt::PrimaryOrientation:
-        break;
-    case Qt::PortraitOrientation:
-        orientationPreference = ORIENTATION_PREFERENCE_PORTRAIT;
-        break;
-    case Qt::LandscapeOrientation:
-        orientationPreference = ORIENTATION_PREFERENCE_LANDSCAPE;
-        break;
-    case Qt::InvertedPortraitOrientation:
-        orientationPreference = ORIENTATION_PREFERENCE_PORTRAIT_FLIPPED;
-        break;
-    case Qt::InvertedLandscapeOrientation:
-        orientationPreference = ORIENTATION_PREFERENCE_LANDSCAPE_FLIPPED;
-        break;
+    if (QWindowsContext::user32dll.setDisplayAutoRotationPreferences) {
+        DWORD orientationPreference = 0;
+        switch (o) {
+        case Qt::PrimaryOrientation:
+            orientationPreference = orientationPreferenceNone;
+            break;
+        case Qt::PortraitOrientation:
+            orientationPreference = orientationPreferencePortrait;
+            break;
+        case Qt::LandscapeOrientation:
+            orientationPreference = orientationPreferenceLandscape;
+            break;
+        case Qt::InvertedPortraitOrientation:
+            orientationPreference = orientationPreferencePortraitFlipped;
+            break;
+        case Qt::InvertedLandscapeOrientation:
+            orientationPreference = orientationPreferenceLandscapeFlipped;
+            break;
+        }
+        result = QWindowsContext::user32dll.setDisplayAutoRotationPreferences(orientationPreference);
     }
-    result = SetDisplayAutoRotationPreferences(orientationPreference);
     return result;
 }
 
 Qt::ScreenOrientation QWindowsScreen::orientationPreference()
 {
     Qt::ScreenOrientation result = Qt::PrimaryOrientation;
-    ORIENTATION_PREFERENCE orientationPreference = ORIENTATION_PREFERENCE_NONE;
-    if (GetDisplayAutoRotationPreferences(&orientationPreference)) {
-        switch (orientationPreference) {
-        case ORIENTATION_PREFERENCE_NONE:
-            break;
-        case ORIENTATION_PREFERENCE_LANDSCAPE:
-            result = Qt::LandscapeOrientation;
-            break;
-        case ORIENTATION_PREFERENCE_PORTRAIT:
-            result = Qt::PortraitOrientation;
-            break;
-        case ORIENTATION_PREFERENCE_LANDSCAPE_FLIPPED:
-            result = Qt::InvertedLandscapeOrientation;
-            break;
-        case ORIENTATION_PREFERENCE_PORTRAIT_FLIPPED:
-            result = Qt::InvertedPortraitOrientation;
-            break;
+    if (QWindowsContext::user32dll.getDisplayAutoRotationPreferences) {
+        DWORD orientationPreference = 0;
+        if (QWindowsContext::user32dll.getDisplayAutoRotationPreferences(&orientationPreference)) {
+            switch (orientationPreference) {
+            case orientationPreferenceLandscape:
+                result = Qt::LandscapeOrientation;
+                break;
+            case orientationPreferencePortrait:
+                result = Qt::PortraitOrientation;
+                break;
+            case orientationPreferenceLandscapeFlipped:
+                result = Qt::InvertedLandscapeOrientation;
+                break;
+            case orientationPreferencePortraitFlipped:
+                result = Qt::InvertedPortraitOrientation;
+                break;
+            }
         }
     }
     return result;
