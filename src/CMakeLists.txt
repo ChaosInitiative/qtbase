@@ -67,6 +67,7 @@ add_subdirectory(tools)
 
 if(QT_FEATURE_gui)
     add_subdirectory(gui)
+    add_subdirectory(svg)
 
     if(QT_FEATURE_opengl)
         add_subdirectory(opengl)
@@ -74,6 +75,7 @@ if(QT_FEATURE_gui)
 
     if(QT_FEATURE_widgets)
         add_subdirectory(widgets)
+        add_subdirectory(svgwidgets)
         if(QT_FEATURE_opengl)
             add_subdirectory(openglwidgets)
         endif()
