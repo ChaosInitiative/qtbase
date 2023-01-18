@@ -681,6 +681,9 @@ function(_qt_internal_create_executable target)
         add_executable("${target}" ${ARGN})
         cmake_policy(POP)
     endif()
+    if (CMAKE_CROSSCOMPILING)
+        target_sources(${target} PRIVATE "${__qt_core_macros_module_base_dir}/memoverride.cpp")
+    endif()
 
     _qt_internal_disable_autorcc_zstd_when_not_supported("${target}")
     _qt_internal_set_up_static_runtime_library("${target}")
@@ -740,10 +743,10 @@ function(_qt_internal_finalize_executable target)
     if(APPLE)
         if(NOT CMAKE_SYSTEM_NAME OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
             # macOS
-            _qt_internal_finalize_macos_app("${target}")
+        _qt_internal_finalize_macos_app("${target}")
         else()
             _qt_internal_finalize_uikit_app("${target}")
-        endif()
+    endif()
     endif()
 
     # For finalizer mode of plugin importing to work safely, we need to know the list of Qt
@@ -1318,9 +1321,9 @@ function(qt6_extract_metatypes target)
                 if(DEFINED QT_USE_CMAKE_DEPFILES)
                     set(use_dep_files ${QT_USE_CMAKE_DEPFILES})
                 else()
-                    set(use_dep_files TRUE)
-                endif()
+                set(use_dep_files TRUE)
             endif()
+        endif()
         endif()
 
         set(cmake_automoc_parser_timestamp "${type_list_file}.timestamp")
@@ -1505,9 +1508,9 @@ function(qt6_extract_metatypes target)
 
     if(arg___QT_INTERNAL_INSTALL)
         set(internal_install_option "INTERNAL_INSTALL")
-    else()
+        else()
         set(internal_install_option "")
-    endif()
+        endif()
 
     # TODO: Clean up Qt-specific installation not to happen in the public api.
     # Check whether the metatype files should be installed.
@@ -2076,7 +2079,7 @@ function(__qt_propagate_generated_resource target resource_name generated_source
         set(${output_generated_target} "" PARENT_SCOPE)
     endif()
 
-    target_sources(${target} PRIVATE ${generated_source_code})
+        target_sources(${target} PRIVATE ${generated_source_code})
 endfunction()
 
 function(__qt_internal_sanitize_resource_name out_var name)
@@ -2125,7 +2128,7 @@ function(_qt_internal_expose_source_file_to_ide target file)
             set_property(TARGET ${target} APPEND PROPERTY _qt_deferred_files ${file})
             _qt_internal_expose_deferred_files_to_ide(${target})
             return()
-        endif()
+    endif()
     endif()
 
     # Fallback for targets that are not finalized: Create fake target under which the file is added.
@@ -2732,12 +2735,12 @@ function(_qt_internal_add_library target)
                 set(type_to_create STATIC)
             endif()
         else()
-            if(QT6_IS_SHARED_LIBS_BUILD)
-                set(type_to_create SHARED)
-            else()
-                set(type_to_create STATIC)
-            endif()
+        if(QT6_IS_SHARED_LIBS_BUILD)
+            set(type_to_create SHARED)
+        else()
+            set(type_to_create STATIC)
         endif()
+    endif()
     endif()
 
     cmake_policy(PUSH)
@@ -2746,6 +2749,9 @@ function(_qt_internal_add_library target)
     cmake_policy(POP)
 
     _qt_internal_disable_autorcc_zstd_when_not_supported("${target}")
+    if (CMAKE_CROSSCOMPILING AND (type_to_create STREQUAL "SHARED" OR type_to_create STREQUAL "MODULE"))
+        target_sources(${target} PRIVATE "${__qt_core_macros_module_base_dir}/memoverride.cpp")
+    endif()
     _qt_internal_set_up_static_runtime_library(${target})
 
     if(NOT type_to_create STREQUAL "INTERFACE" AND NOT type_to_create STREQUAL "OBJECT")
@@ -3493,7 +3499,7 @@ macro(qt6_standard_project_setup)
         if(DEFINED __qt_sps_arg_I18N_TRANSLATED_LANGUAGES
                 AND NOT DEFINED QT_I18N_TRANSLATED_LANGUAGES)
             set(QT_I18N_TRANSLATED_LANGUAGES ${__qt_sps_arg_I18N_TRANSLATED_LANGUAGES})
-        endif()
+    endif()
         if(NOT DEFINED __qt_sps_arg_I18N_SOURCE_LANGUAGE)
             set(__qt_sps_arg_I18N_SOURCE_LANGUAGE en)
         endif()
@@ -3776,7 +3782,7 @@ function(qt6_generate_deploy_app_script)
             FUNCTION_NAME "qt6_generate_deploy_app_script"
             SKIP_REASON "${skip_reason}"
             ${generate_args}
-        )
+            )
     elseif(APPLE AND NOT IOS AND QT6_IS_SHARED_LIBS_BUILD AND is_bundle)
         # TODO: Consider handling non-bundle applications in the future using the generic cmake
         # runtime dependency feature.
@@ -3812,7 +3818,7 @@ ${common_deploy_args})
         # This provides us a migration path in the future without breaking compatibility promises.
         message(FATAL_ERROR
             "Support for installing runtime dependencies is not implemented for "
-            "this target platform (${CMAKE_SYSTEM_NAME}, ${qt_build_type_string}). "
+            "this target platform (${CMAKE_SYSTEM_NAME}, ${qt_build_type_string})."
             ${unsupported_platform_extra_message}
         )
     else()
@@ -3821,7 +3827,7 @@ ${common_deploy_args})
         if(unsupported_platform_extra_message)
             string(APPEND skip_message
                 "\n    EXTRA_MESSAGE \"${unsupported_platform_extra_message}\"")
-        endif()
+    endif()
         string(APPEND skip_message "\n)")
         qt6_generate_deploy_script(${generate_args} CONTENT "${skip_message}")
     endif()

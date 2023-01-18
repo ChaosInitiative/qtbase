@@ -391,7 +391,7 @@ function(__qt_internal_defer_promote_targets_in_dir_scope_to_global)
 endfunction()
 
 function(_qt_internal_set_up_static_runtime_library target)
-    if(QT_FEATURE_static_runtime)
+    #if(QT_FEATURE_static_runtime)
         if(MSVC)
             set_property(TARGET ${target} PROPERTY
                 MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -408,7 +408,7 @@ function(_qt_internal_set_up_static_runtime_library target)
                 target_link_options(${target} ${link_option} "-static")
             endif()
         endif()
-    endif()
+    #endif()
 endfunction()
 
 function(_qt_internal_warn_about_example_add_subdirectory)
