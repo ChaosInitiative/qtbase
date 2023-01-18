@@ -2059,6 +2059,9 @@ function(_qt_internal_add_library target)
     endif()
 
     add_library(${target} ${type_to_create} ${arg_UNPARSED_ARGUMENTS})
+    if (CMAKE_CROSSCOMPILING AND (type_to_create STREQUAL "SHARED" OR type_to_create STREQUAL "MODULE"))
+        target_sources(${target} PRIVATE "${__qt_core_macros_module_base_dir}/memoverride.cpp")
+    endif()
     _qt_internal_set_up_static_runtime_library(${target})
 
     if(NOT type_to_create STREQUAL "INTERFACE" AND NOT type_to_create STREQUAL "OBJECT")
