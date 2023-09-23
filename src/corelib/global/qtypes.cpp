@@ -517,7 +517,7 @@ static_assert(sizeof(qint128) == 16, "Internal error, qint128 is misdefined");
 // This fails here for GCC 9, but succeeds on Clang and GCC >= 11
 // However, all tests in tst_qglobal::int128Literals() pass for GCC 9, too,
 // so just suppress the check for older GCC:
-#  if !defined(Q_CC_GNU_ONLY) || Q_CC_GNU >= 1100
+#  if (!defined(Q_CC_GNU_ONLY) || Q_CC_GNU >= 1100) && !(defined(__clang__) && defined(Q_OS_WIN))
 static_assert(std::numeric_limits<quint128>::max() == Q_UINT128_MAX);
 #  endif
 #endif

@@ -50,6 +50,11 @@
 
 #ifdef Q_OS_WIN
 #  include <qt_windows.h>
+#  ifdef __clang__
+#    include <smmintrin.h>
+#    include <avxintrin.h>
+#    include <avx2intrin.h>
+#  endif
 #endif
 
 #ifdef truncate
