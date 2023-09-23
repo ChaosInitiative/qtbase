@@ -32,9 +32,15 @@ jobs:
               ninja install
               cp -r /opt/qt6/include /opt/qt6/include-linux
               cp -r /opt/qt6/lib/cmake /opt/qt6/lib/cmake-linux
-              cp -r /opt/qt6/lib/metatypes /opt/qt6/lib/metatypes-linux
+              cp -r /opt/qt6/metatypes /opt/qt6/metatypes-linux
               cp -r /opt/qt6/mkspecs /opt/qt6/mkspecs-linux
               cp -r /opt/qt6/modules /opt/qt6/modules-linux
+          - name: Fix windows includes
+            working-directory: /opt/msvc/kits/10/Include/10.0.20348.0/winrt
+            run: |
+              ln -s asyncinfo.h AsyncInfo.h
+              ln -s WindowsContracts.h windowscontracts.h
+              ln -s ivectorchangedeventargs.h IVectorChangedEventArgs.h 
           - name: Configure Windows
             working-directory: build-cross
             run: cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja -DQT_BUILD_TESTS=OFF -DQT_BUILD_EXAMPLES=OFF -DQT_FORCE_BUILD_TOOLS=ON -DCMAKE_INSTALL_PREFIX=/opt/qt6 -DQT_HOST_PATH=/opt/qt6 -DQT_QMAKE_TARGET_MKSPEC=win32-clang-msvc -DCMAKE_TOOLCHAIN_FILE=cmake/clang.toolchain.cmake ..
