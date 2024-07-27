@@ -32,3 +32,7 @@ endif()
 if(QT_FEATURE_windeployqt)
     add_subdirectory(windeployqt)
 endif()
+
+if(QT_FEATURE_designer)
+    add_subdirectory(designer)
+endif()

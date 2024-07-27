@@ -27,9 +27,16 @@ qt_feature("qmake" PRIVATE
         (QT_FEATURE_alloca_malloc_h OR NOT WIN32) AND QT_FEATURE_cborstreamwriter AND
         QT_FEATURE_datestring AND QT_FEATURE_regularexpression AND QT_FEATURE_temporaryfile)
 
+qt_feature("designer" PRIVATE
+    LABEL "Qt Widgets Designer"
+    PURPOSE "Qt Widgets Designer is the Qt tool for designing and building graphical user interfaces (GUIs) with Qt Widgets. You can compose and customize your windows or dialogs in a what-you-see-is-what-you-get (WYSIWYG) manner, and test them using different styles and resolutions."
+    CONDITION TARGET Qt::Widgets AND TARGET Qt::Network AND QT_FEATURE_png AND QT_FEATURE_pushbutton AND QT_FEATURE_toolbutton
+)
+
 qt_configure_add_summary_section(NAME "Core tools")
 qt_configure_add_summary_entry(ARGS "androiddeployqt")
 qt_configure_add_summary_entry(ARGS "macdeployqt")
 qt_configure_add_summary_entry(ARGS "windeployqt")
 qt_configure_add_summary_entry(ARGS "qmake")
+qt_configure_add_summary_entry(ARGS "designer")
 qt_configure_end_summary_section()

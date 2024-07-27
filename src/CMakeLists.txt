@@ -97,6 +97,11 @@ add_subdirectory(plugins)
 
 add_subdirectory(android)
 
+if(TARGET Qt::Widgets)
+    add_subdirectory(uiplugin)
+    add_subdirectory(uitools)
+endif()
+
 add_subdirectory(repparser)
 if(QT_FEATURE_localserver)
     add_subdirectory(remoteobjects)
