@@ -96,3 +96,8 @@ endif()
 add_subdirectory(plugins)
 
 add_subdirectory(android)
+
+add_subdirectory(repparser)
+if(QT_FEATURE_localserver)
+    add_subdirectory(remoteobjects)
+endif()

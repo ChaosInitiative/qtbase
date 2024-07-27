@@ -15,6 +15,7 @@ add_subdirectory(qlalr)
 add_subdirectory(qvkgen)
 if (QT_FEATURE_commandlineparser)
     add_subdirectory(qtpaths)
+    add_subdirectory(repc)
 endif()
 
 if(QT_FEATURE_androiddeployqt)

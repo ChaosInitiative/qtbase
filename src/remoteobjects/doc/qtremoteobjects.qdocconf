@@ -1,0 +1,64 @@
+include($QT_INSTALL_DOCS/global/qt-module-defaults.qdocconf)
+include($QT_INSTALL_DOCS/config/exampleurl-qtremoteobjects.qdocconf)
+
+project                 = QtRemoteObjects
+description             = Qt Remote Objects Reference Documentation
+version                 = $QT_VERSION
+
+qhp.projects            = QtRemoteObjects
+
+qhp.QtRemoteObjects.file                = qtremoteobjects.qhp
+qhp.QtRemoteObjects.namespace           = org.qt-project.qtremoteobjects.$QT_VERSION_TAG
+qhp.QtRemoteObjects.virtualFolder       = remoteobjects
+qhp.QtRemoteObjects.indexTitle          = Qt Remote Objects
+qhp.QtRemoteObjects.indexRoot           =
+
+qhp.QtRemoteObjects.subprojects         = overviews classes repc examples
+qhp.QtRemoteObjects.subprojects.overviews.title = Getting Started
+qhp.QtRemoteObjects.subprojects.overviews.indexTitle = Getting Started with Qt Remote Objects
+qhp.QtRemoteObjects.subprojects.overviews.selectors = fake:page,group,module
+qhp.QtRemoteObjects.subprojects.classes.title = C++ Classes
+qhp.QtRemoteObjects.subprojects.classes.indexTitle = Qt Remote Objects C++ Classes
+qhp.QtRemoteObjects.subprojects.classes.selectors = class fake:headerfile
+qhp.QtRemoteObjects.subprojects.classes.sortPages = true
+qhp.QtRemoteObjects.subprojects.examples.title = Qt Remote Objects Examples
+qhp.QtRemoteObjects.subprojects.examples.indexTitle = Qt Remote Objects Examples
+qhp.QtRemoteObjects.subprojects.examples.selectors = fake:example
+
+depends += qtcore \
+           qtnetwork \
+           qtdoc \
+           qtcmake \
+           qmake \
+           qtbluetooth
+
+tagfile                 = ../../../doc/qtremoteobjects/qtremoteobjects.tags
+
+headerdirs  += .. \
+                ../../remoteobjects
+
+sourcedirs  += .. \
+                ../../remoteobjects
+
+exampledirs += ../../../examples/remoteobjects \
+               snippets/
+
+#add thumbnail images for the example docs that does not have an image.
+manifestmeta.thumbnail.names += "QtRemoteObjects/Model*" \
+                               "QtRemoteObjects/QML*" \
+                               "QtRemoteObjects/QtRemote*"
+
+manifestmeta.highlighted.names = \
+    "QtRemoteObjects/Time Server Application" \
+    "QtRemoteObjects/Time Client Application"
+
+examplesinstallpath = remoteobjects
+
+imagedirs   += images
+
+navigation.landingpage = "Qt Remote Objects"
+navigation.cppclassespage = "Qt Remote Objects C++ Classes"
+navigation.qmltypespage = "Qt Remote Objects QML Types"
+
+# Enforce zero documentation warnings
+warninglimit = 0
