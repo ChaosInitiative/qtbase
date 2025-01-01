@@ -17,7 +17,7 @@ jobs:
           - name: Install XCB packages
             run: |
               apt-get update
-              apt-get install -y --no-install-recommends libxkbcommon-x11-dev libxcb-cursor-dev libxcb-icccm4-dev libxcb-keysyms1-dev
+              apt-get install -y --no-install-recommends libxkbcommon-x11-dev libxcb-cursor-dev libxcb-icccm4-dev libxcb-keysyms1-dev libfontconfig-dev
           - name: Prepare build dirs
             run: |
               mkdir build
