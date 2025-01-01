@@ -55,7 +55,7 @@ jobs:
               tar cf qt6.tar /opt/qt6
               gzip qt6.tar
           - name: Build upload
-            uses: actions/upload-artifact@v2.3.1
+            uses: actions/upload-artifact@v4
             with:
               name: build_${{ github.sha }}
               path: /opt/qt6.tar.gz
